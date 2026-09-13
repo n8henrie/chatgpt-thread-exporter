@@ -1,0 +1,14 @@
+/dist/
+/extension/.gitignore
+/extension/background.js
+/extension/chatgpt_thread_exporter.d.ts
+/extension/chatgpt_thread_exporter.js
+/extension/chatgpt_thread_exporter_bg.wasm
+/extension/chatgpt_thread_exporter_bg.wasm.d.ts
+/extension/content.js
+/extension/core.js
+/extension/popup.js
+/result
+/result-debug
+/target/
+.DS_Store

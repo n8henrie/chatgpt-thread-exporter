@@ -1,0 +1,127 @@
+{
+  "source_url": "https://chatgpt.com/c/11111111-2222-3333-4444-555555555555",
+  "exported_at": "2026-08-04T17:00:00Z",
+  "structured_conversation": {
+    "id": "11111111-2222-3333-4444-555555555555",
+    "title": "Artifact export test",
+    "current_node": "assistant-main",
+    "mapping": {
+      "root": {
+        "id": "root",
+        "parent": null,
+        "children": [
+          "user-1"
+        ],
+        "message": null
+      },
+      "user-1": {
+        "id": "user-1",
+        "parent": "root",
+        "children": [
+          "assistant-main",
+          "assistant-alt"
+        ],
+        "message": {
+          "id": "user-message",
+          "author": {
+            "role": "user"
+          },
+          "recipient": "all",
+          "create_time": 1,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              "Please inspect this image.",
+              {
+                "content_type": "image_asset_pointer",
+                "asset_pointer": "sediment://file-user-123456"
+              }
+            ]
+          },
+          "metadata": {
+            "attachments": [
+              {
+                "file_name": "submitted-photo.png",
+                "mime_type": "image/png",
+                "size_bytes": 1234,
+                "asset_pointer": "sediment://file-user-123456"
+              }
+            ]
+          }
+        }
+      },
+      "assistant-main": {
+        "id": "assistant-main",
+        "parent": "user-1",
+        "children": [],
+        "message": {
+          "id": "assistant-message-main",
+          "author": {
+            "role": "assistant"
+          },
+          "recipient": "all",
+          "create_time": 2,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "I created [the report](sandbox:/mnt/data/report.pdf). \ue200cite\ue202source1\ue201"
+            ]
+          },
+          "metadata": {
+            "citations": [
+              {
+                "title": "Primary reference",
+                "url": "https://example.test/reference"
+              }
+            ],
+            "internal_file_reference": {
+              "title": "Do not persist this signed URL",
+              "url": "https://files.oaiusercontent.com/private/report.pdf?sig=secret-value&se=2099-01-01T00%3A00%3A00Z"
+            }
+          }
+        }
+      },
+      "assistant-alt": {
+        "id": "assistant-alt",
+        "parent": "user-1",
+        "children": [],
+        "message": {
+          "id": "assistant-message-alt",
+          "author": {
+            "role": "assistant"
+          },
+          "recipient": "all",
+          "create_time": 1.5,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Alternate response."
+            ]
+          },
+          "metadata": {}
+        }
+      }
+    }
+  },
+  "dom_conversation": {
+    "title": "Artifact export test",
+    "messages": []
+  },
+  "dom_artifacts": [
+    {
+      "direction": "received",
+      "message_id": "assistant-message-main",
+      "url": "https://files.example.test/signed/report.pdf?token=redacted",
+      "name": "report.pdf",
+      "mime_type": "application/pdf",
+      "size_bytes": 4096,
+      "source": "dom-anchor"
+    }
+  ],
+  "options": {
+    "include_artifacts": true,
+    "include_alternate_branches": true,
+    "max_alternate_branches": 20
+  },
+  "warnings": []
+}

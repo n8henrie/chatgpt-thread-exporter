@@ -1,0 +1,36 @@
+[package]
+name = "chatgpt-thread-exporter"
+version = "0.3.1"
+edition = "2024"
+rust-version = "1.97"
+description = "Firefox WebExtension core for exporting ChatGPT conversations as Markdown"
+license = "MIT"
+
+[package.metadata.wasm-pack.profile.release]
+# wasm-pack does not pass Wasm features emitted by recent Rust versions to wasm-opt.
+# Supplying a list replaces its default arguments, so retain the default -O.
+wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+serde = { version = "=1.0.219", features = ["derive"] }
+serde_json = "=1.0.140"
+wasm-bindgen = "=0.2.121"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

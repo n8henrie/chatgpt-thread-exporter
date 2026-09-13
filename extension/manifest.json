@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT Thread Exporter",
+  "version": "0.3.1",
+  "description": "Export the active ChatGPT thread to Markdown with best-effort artifact downloads.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{bdb876ae-6bcc-4faa-8640-dfa23a9c7bec}",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "scripting"
+  ],
+  "action": {
+    "default_title": "Export ChatGPT thread",
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon.svg"
+  },
+  "background": {
+    "scripts": [
+      "core.js",
+      "background.js"
+    ]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "chatgpt_thread_exporter.js",
+        "chatgpt_thread_exporter_bg.wasm"
+      ],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ]
+    }
+  ],
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  }
+}
