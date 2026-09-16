@@ -38,7 +38,6 @@ Alternate leaves are exported under `branches/` when enabled.
 Artifact links use relative paths.
 Unresolved artifacts remain listed in `artifacts.md` and `manifest.json`.
 
-
 ## Build, test, and lint
 
 The flake exposes two packages on each supported system:
@@ -76,16 +75,15 @@ make test
 make lint
 ```
 
-`make stage` compiles the TypeScript and Rust/WebAssembly output directly beside the static files in `extension/`.
-There is no separate source, package, or staging directory.
-`make package` creates `dist/chatgpt-thread-exporter-firefox.xpi` from the runtime files in that directory.
-`make clean` removes generated JavaScript, TypeScript declarations, WebAssembly, Cargo output, and the XPI.
+`make stage` compiles the TypeScript sources in `extension/` beside their JavaScript output.
+`wasm-pack` writes its intermediate files under `target/`; the generated module, declarations, and Binaryen-optimized WebAssembly are placed at the extension root.
+`make package` creates `dist/chatgpt-thread-exporter-firefox.xpi`.
+`make clean` removes generated JavaScript, WebAssembly, Cargo output, and the XPI.
 
-`wasm-pack` invokes `wasm-bindgen` and Binaryen's `wasm-opt` internally.
-Nix supplies both tools, and `--mode no-install` prevents `wasm-pack` from downloading them.
-The generated TypeScript declaration describes the low-level Rust/WASM exports used by `extension/core.ts`.
-`--no-pack` suppresses only npm package metadata, README, and license copies that are not part of a Firefox extension.
-The explicit `wasm-opt` feature flags in `Cargo.toml` work around a known `wasm-pack` incompatibility with WebAssembly features emitted by recent Rust versions.
+`wasm-pack` invokes `wasm-bindgen` internally.
+Nix supplies the matching `wasm-bindgen-cli` and Binaryen's `wasm-opt`; the build does not download tools.
+The generated TypeScript declarations check the Rust/TypeScript boundary but are not included in the XPI.
+`make lint` also runs Mozilla's `web-ext` validator for a self-hosted extension and treats every warning as an error.
 
 Run the complete local sequence with:
 
@@ -93,8 +91,8 @@ Run the complete local sequence with:
 nix develop --command make ci
 ```
 
-One Nix derivation produces both outputs from the same extension tree: the unsigned XPI and the unpacked `debug` tree.
-`nix flake check` builds and tests the same derivation.
+The default Nix package is built from the `debug` package, so the XPI archives the same unpacked extension without recompiling it.
+`nix flake check` builds and tests that package graph.
 
 Formatting is separate and mutating:
 
@@ -112,12 +110,36 @@ Compiling TypeScript, testing the repository, and packaging a Firefox extension 
 ## GitHub Actions and releases
 
 `.github/workflows/ci.yml` installs Determinate Nix and runs build, test, and lint in that order.
-Successful runs upload the unsigned XPI.
-A `v*` tag must match the manifest version before the workflow publishes the XPI as a GitHub release asset.
+Non-tag runs upload the unsigned XPI as a short-lived CI artifact.
+
+For a `v*` tag, the workflow:
+
+1. injects an `update_url` derived from `github.repository` into the release manifest;
+2. verifies that the tag matches the manifest version;
+3. uploads the complete human-readable source archive to Mozilla;
+4. requests an unlisted Mozilla signature with `web-ext sign`;
+5. creates an update manifest for that signed version; and
+6. publishes the signed XPI, source archive, and `updates.json` as GitHub Release assets.
+
+The stable update URL is the latest-release asset path.
+Each update manifest points to the version-specific signed XPI, so existing installations can update after a newer release is published.
+The tracked manifest and debug package intentionally omit `update_url`: this avoids hard-coding a repository owner and prevents local temporary installations from polling a release channel.
+Keep the release asset name and path stable; installed copies continue using the `update_url` from the version they originally installed.
+The repository and its release assets must be public so Firefox can fetch them without GitHub credentials.
+
+Configure these repository secrets before creating a release tag:
+
+```text
+AMO_JWT_ISSUER
+AMO_JWT_SECRET
+```
+
+They are the API credentials issued by Mozilla's Add-ons Developer Hub.
+A tag build is self-distributed (`unlisted`), not listed publicly on AMO.
 
 ## Temporary Firefox installation
 
-Firefox 140 or newer is required.
+Firefox 142 or newer is required.
 
 Using Nix:
 
@@ -235,16 +257,17 @@ src/core.rs              conversation graph and branch selection
 src/dom.rs               captured DOM to Markdown
 src/markdown.rs          structured message Markdown
 src/security.rs          URL, path, size, and redaction policy
-extension/core.ts       WASM loader bridge
-extension/content.ts    DOM, authentication, fetch, and byte-transfer bridge
-extension/background.ts Firefox Downloads bridge
-extension/popup.ts      toolbar UI bridge
-extension/              TypeScript, static assets, and generated runtime files
-tests/                  Rust fixtures and Node boundary/packaging audits
-Makefile                local and CI task interface
-package.nix             callPackage derivation with XPI and unpacked outputs
-.github/workflows/      CI and release workflow
-flake.nix               systems, packages, dev shell, and formatter
+extension/core.ts         WASM loader bridge
+extension/content.ts      DOM, authentication, fetch, and byte-transfer bridge
+extension/background.ts   Firefox Downloads bridge
+extension/popup.ts        toolbar UI bridge
+extension/                extension sources, static assets, and generated output
+tests/                   Rust fixtures and Node boundary/packaging audits
+Makefile                 local and CI task interface
+package.nix              unpacked callPackage derivation; output is the extension root
+archive.nix              XPI derivation built from the unpacked package output
+.github/workflows/       CI and release workflow
+flake.nix                systems, default package, dev shell, and formatter
 ```
 
 ## Current limitations

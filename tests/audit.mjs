@@ -25,6 +25,11 @@ assert.deepEqual(
   manifest.browser_specific_settings.gecko.data_collection_permissions,
   { required: ["none"] },
 );
+assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "142.0");
+const updateUrl = manifest.browser_specific_settings.gecko.update_url;
+if (updateUrl !== undefined) {
+  assert.match(updateUrl, /^https:\/\//u);
+}
 
 const cargoToml = await readFile(join(root, "Cargo.toml"), "utf8");
 const cargoVersion = cargoToml.match(/^version = "([^"]+)"$/mu)?.[1];
@@ -42,6 +47,20 @@ assert.match(workflow, /nix develop --command make build/u);
 assert.match(workflow, /nix develop --command make test/u);
 assert.match(workflow, /nix develop --command make lint/u);
 assert.match(workflow, /dist\/chatgpt-thread-exporter-firefox\.xpi/u);
+assert.match(
+  workflow,
+  /releases\/latest\/download\/updates\.json/u,
+  "release builds must inject a stable update manifest URL",
+);
+assert.match(workflow, /web-ext sign/u);
+assert.match(workflow, /--channel unlisted/u);
+assert.match(workflow, /--upload-source-code/u);
+assert.match(workflow, /AMO_JWT_ISSUER/u);
+assert.match(workflow, /AMO_JWT_SECRET/u);
+assert.match(workflow, /WEB_EXT_API_KEY/u);
+assert.match(workflow, /WEB_EXT_API_SECRET/u);
+assert.doesNotMatch(workflow, /--api-key|--api-secret/u);
+assert.match(workflow, /release\/updates\.json/u);
 
 const requiredAssets = [
   "manifest.json",
@@ -52,9 +71,9 @@ const requiredAssets = [
   "popup.js",
   "popup.css",
   "icons/icon.svg",
-  "chatgpt_thread_exporter.js",
-  "chatgpt_thread_exporter.d.ts",
-  "chatgpt_thread_exporter_bg.wasm",
+  "wasm.js",
+  "wasm.d.ts",
+  "wasm_bg.wasm",
 ];
 for (const relativePath of requiredAssets) {
   const metadata = await stat(join(extensionDirectory, relativePath));
@@ -98,9 +117,12 @@ for (const file of ["background.js", "content.js", "core.js", "popup.js"]) {
   );
 }
 
+const coreSource = await readFile(join(root, "extension/core.ts"), "utf8");
+assert.match(coreSource, /typeof import\("\.\/wasm\.js"\)/u);
+assert.match(coreSource, /await import\("\.\/wasm\.js"\)/u);
+assert.doesNotMatch(coreSource, /getURL\("wasm\.js"\)/u);
 const contentSource = await readFile(join(root, "extension/content.ts"), "utf8");
 const backgroundSource = await readFile(join(root, "extension/background.ts"), "utf8");
-const coreSource = await readFile(join(root, "extension/core.ts"), "utf8");
 assert.doesNotMatch(contentSource, /function\s+normalizeSandboxPath/u);
 assert.doesNotMatch(contentSource, /function\s+selectAccountId/u);
 assert.doesNotMatch(contentSource, /function\s+buildSandboxDownloadPath/u);
@@ -109,8 +131,6 @@ assert.doesNotMatch(backgroundSource, /function\s+buildManifest/u);
 assert.doesNotMatch(backgroundSource, /function\s+sanitizePathSegment/u);
 assert.doesNotMatch(backgroundSource, /oaiusercontent\.com/u);
 assert.doesNotMatch(backgroundSource, /chatgpt\.com/u);
-assert.match(coreSource, /typeof import\("\.\/chatgpt_thread_exporter\.js"\)/u);
-assert.doesNotMatch(coreSource, /interface WasmModule/u);
 
 const rustPolicy = await Promise.all(
   [
@@ -149,17 +169,19 @@ for (const target of [
 ]) {
   assert.match(makefile, new RegExp(`^${target}:`, "mu"), `Makefile is missing ${target}`);
 }
-assert.match(makefile, /^build: package$/mu);
-assert.match(makefile, /^package: stage$/mu);
+assert.match(makefile, /^build: stage package$/mu);
+assert.match(makefile, /^package:$/mu);
 assert.match(makefile, /^test: stage$/mu);
 assert.match(makefile, /^lint: stage$/mu);
 assert.match(makefile, /^ci: build test lint$/mu);
 assert.match(makefile, /wasm-pack build/u);
 assert.match(makefile, /--target web/u);
-assert.match(makefile, /--out-dir extension\b/u);
-assert.match(makefile, /--no-pack\b/u);
-assert.doesNotMatch(makefile, /--no-typescript\b/u);
-assert.doesNotMatch(makefile, /extension\/pkg/u);
+assert.match(makefile, /--no-pack/u);
+assert.match(makefile, /wasm-opt -Oz/u);
+assert.match(makefile, /web-ext lint/u);
+assert.match(makefile, /--self-hosted/u);
+assert.match(makefile, /--warnings-as-errors/u);
+assert.doesNotMatch(makefile, /--no-typescript|--no-opt/u);
 assert.doesNotMatch(
   makefile,
   /^(?:SHELL\s*:?=|\.SHELLFLAGS:|\.ONESHELL:|\.NOTPARALLEL:)/mu,
@@ -171,20 +193,24 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(makefile, /^\s*wasm-bindgen\b/mu);
 assert.equal(await pathExists(join(root, "scripts")), false);
+assert.equal(await pathExists(join(root, "extension-src")), false);
+assert.equal(await pathExists(join(root, "extension", "pkg")), false);
 
 const flakeSource = await readFile(join(root, "flake.nix"), "utf8");
-assert.match(flakeSource, /extension = pkgs\.callPackage \.\/package\.nix/u);
-assert.match(flakeSource, /default = extension;/u);
-assert.match(flakeSource, /debug = extension\.unpacked;/u);
-assert.match(flakeSource, /checks\.default = extension;/u);
-assert.doesNotMatch(flakeSource, /archive\.nix/u);
+assert.match(flakeSource, /unpacked = pkgs\.callPackage \.\/package\.nix/u);
+assert.match(
+  flakeSource,
+  /archive = pkgs\.callPackage \.\/archive\.nix \{ extension = unpacked; \};/u,
+);
+assert.match(flakeSource, /default = archive;/u);
+assert.match(flakeSource, /debug = unpacked;/u);
+assert.match(flakeSource, /checks\.default = archive;/u);
+assert.match(flakeSource, /pkgs\.web-ext/u);
 
 const packageSource = await readFile(join(root, "package.nix"), "utf8");
 assert.match(packageSource, /\bbinaryen\b/u);
 assert.match(packageSource, /\bwasm-pack\b/u);
-assert.match(packageSource, /\bzip\b/u);
-assert.match(packageSource, /outputs = \[\s*"out"\s*"unpacked"\s*\]/u);
-assert.match(packageSource, /make build/u);
+assert.doesNotMatch(packageSource, /extension-src/u);
 for (const redundantSetting of [
   /auditable\s*=/u,
   /CARGO_INCREMENTAL/u,
@@ -194,8 +220,13 @@ for (const redundantSetting of [
 ]) {
   assert.doesNotMatch(packageSource, redundantSetting);
 }
-assert.equal(await pathExists(join(root, "archive.nix")), false);
-assert.equal(await pathExists(join(root, "extension-src")), false);
+
+const archiveSource = await readFile(join(root, "archive.nix"), "utf8");
+assert.match(archiveSource, /\bextension\b/u);
+assert.match(archiveSource, /-firefox\.xpi/u);
+assert.match(archiveSource, /make -f .*Makefile.* package/u);
+assert.doesNotMatch(archiveSource, /zip -r -X/u);
+assert.doesNotMatch(archiveSource, /\b(?:cargo|tsc|wasm-pack)\b/u);
 
 const privacyPatterns = [
   { name: "macOS home directory", pattern: /\/Users\/[A-Za-z0-9._-]+\//u },
@@ -222,6 +253,7 @@ const scanRoots = [
   "src",
   "tests",
   "Makefile",
+  "archive.nix",
   "package.nix",
   "Cargo.toml",
   "Cargo.lock",

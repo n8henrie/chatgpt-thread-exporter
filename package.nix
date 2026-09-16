@@ -1,67 +1,43 @@
 {
   binaryen,
   lib,
-  makeRustPlatform,
   nodejs,
-  rust-bin,
+  rustPlatform,
   typescript,
   wasm-bindgen-cli,
   wasm-pack,
-  zip,
+  lld,
 }:
 
 let
-  cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-  toolchain = rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-  rustPlatform = makeRustPlatform {
-    cargo = toolchain;
-    rustc = toolchain;
-  };
+  cargoToml = lib.importTOML ./Cargo.toml;
 in
 rustPlatform.buildRustPackage {
   pname = cargoToml.package.name;
   version = cargoToml.package.version;
-  outputs = [
-    "out"
-    "unpacked"
-  ];
 
-  src = lib.fileset.toSource {
-    root = ./.;
-    fileset = lib.fileset.unions [
-      ./Cargo.toml
-      ./Cargo.lock
-      ./Makefile
-      ./extension
-      ./rust-toolchain.toml
-      ./src
-      ./tests/export_plan.rs
-      ./tests/extension.mjs
-      ./tests/fixtures
-      ./tsconfig.json
-    ];
-  };
+  src = lib.cleanSource ./.;
 
   cargoLock.lockFile = ./Cargo.lock;
 
   nativeBuildInputs = [
     binaryen
+    lld
     nodejs
     typescript
-    # wasm-pack selects the wasm-bindgen CLI version from Cargo.lock.
+    # wasm-pack delegates binding generation to this exact-version CLI.
     wasm-bindgen-cli
     wasm-pack
-    zip
   ];
 
-  # wasm-pack initializes its cache even when installation is disabled.
+  # wasm-pack initializes a cache even when tool installation is disabled.
   preBuild = ''
     export WASM_PACK_CACHE="$TMPDIR/wasm-pack"
   '';
 
   buildPhase = ''
     runHook preBuild
-    make build
+    make stage
     runHook postBuild
   '';
 
@@ -73,9 +49,8 @@ rustPlatform.buildRustPackage {
 
   installPhase = ''
     runHook preInstall
-    mkdir "$out" "$unpacked"
-    cp dist/chatgpt-thread-exporter-firefox.xpi "$out/"
-    cp -r extension/. "$unpacked"
+    mkdir "$out"
+    cp -r extension/. "$out"
     runHook postInstall
   '';
 

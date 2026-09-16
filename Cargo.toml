@@ -7,9 +7,8 @@ description = "Firefox WebExtension core for exporting ChatGPT conversations as 
 license = "MIT"
 
 [package.metadata.wasm-pack.profile.release]
-# wasm-pack does not pass Wasm features emitted by recent Rust versions to wasm-opt.
-# Supplying a list replaces its default arguments, so retain the default -O.
-wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+# Make uses Nix-provided wasm-opt; disable wasm-pack's downloader and cache.
+wasm-opt = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -17,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.140"
-wasm-bindgen = "=0.2.121"
+wasm-bindgen = "=0.2.127"
 
 [lints.rust]
 unsafe_code = "forbid"

@@ -1,5 +1,5 @@
 (() => {
-  type WasmModule = typeof import("./chatgpt_thread_exporter.js");
+  type WasmModule = typeof import("./wasm.js");
 
   const runtimeGlobal = globalThis as typeof globalThis & {
     ChatGptThreadExporterCore?: RustCoreLoader;
@@ -16,12 +16,11 @@
 
   async function loadCore(): Promise<RustCore> {
     console.info("[chatgpt-thread-exporter][core] loading module");
-    const moduleUrl = browser.runtime.getURL("chatgpt_thread_exporter.js");
-    const wasmUrl = browser.runtime.getURL("chatgpt_thread_exporter_bg.wasm");
+    const wasmUrl = browser.runtime.getURL("wasm_bg.wasm");
 
     let imported: unknown;
     try {
-      imported = await import(moduleUrl);
+      imported = await import("./wasm.js");
     } catch (_error) {
       throw new Error(
         "CORE_MODULE_IMPORT_FAILED: The generated Rust/WebAssembly JavaScript module could not be loaded.",

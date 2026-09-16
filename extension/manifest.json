@@ -6,7 +6,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "{bdb876ae-6bcc-4faa-8640-dfa23a9c7bec}",
-      "strict_min_version": "140.0",
+      "strict_min_version": "142.0",
       "data_collection_permissions": {
         "required": [
           "none"
@@ -36,8 +36,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "chatgpt_thread_exporter.js",
-        "chatgpt_thread_exporter_bg.wasm"
+        "wasm.js",
+        "wasm_bg.wasm"
       ],
       "matches": [
         "https://chatgpt.com/*",

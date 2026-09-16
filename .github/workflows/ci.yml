@@ -31,6 +31,17 @@ jobs:
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@v3
 
+      - name: Configure self-hosted updates
+        if: github.ref_type == 'tag'
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          jq --arg update_url "$SERVER_URL/$REPOSITORY/releases/latest/download/updates.json" \
+            '.browser_specific_settings.gecko.update_url = $update_url' \
+            extension/manifest.json > extension/manifest.json.new
+          mv extension/manifest.json.new extension/manifest.json
+
       - name: Build
         run: nix develop --command make build
 
@@ -46,14 +57,75 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: nix develop --command make release-check RELEASE_TAG="$RELEASE_TAG"
 
-      - name: Upload Firefox extension
+      - name: Upload unsigned build
+        if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v7
         with:
-          name: firefox-extension
+          name: firefox-extension-unsigned
           path: dist/chatgpt-thread-exporter-firefox.xpi
           if-no-files-found: error
           retention-days: 14
           # XPI is already a ZIP archive, so recompressing it only wastes CPU.
+          compression-level: 0
+
+      - name: Archive source for Mozilla
+        if: github.ref_type == 'tag'
+        run: |
+          mkdir -p release
+          git archive --format=zip --output=release/chatgpt-thread-exporter-source.zip "$GITHUB_SHA"
+          zip -q -d release/chatgpt-thread-exporter-source.zip extension/manifest.json
+          zip -q release/chatgpt-thread-exporter-source.zip extension/manifest.json
+
+      - name: Sign extension with Mozilla
+        if: github.ref_type == 'tag'
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          mkdir -p signed
+          # Mozilla signing and approval can exceed web-ext's five-minute default.
+          nix develop --command web-ext sign \
+            --source-dir extension \
+            --artifacts-dir signed \
+            --ignore-files "*.ts" "*.d.ts" \
+            --channel unlisted \
+            --upload-source-code release/chatgpt-thread-exporter-source.zip \
+            --no-config-discovery \
+            --no-input \
+            --timeout 900000
+          signed_xpi="$(find signed -maxdepth 1 -type f -name '*.xpi' -print -quit)"
+          test -n "$signed_xpi"
+          cp "$signed_xpi" release/chatgpt-thread-exporter-firefox.xpi
+
+      - name: Generate update manifest
+        if: github.ref_type == 'tag'
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          addon_id="$(jq -r '.browser_specific_settings.gecko.id' extension/manifest.json)"
+          version="$(jq -r '.version' extension/manifest.json)"
+          update_link="$SERVER_URL/$REPOSITORY/releases/download/$RELEASE_TAG/chatgpt-thread-exporter-firefox.xpi"
+          jq -n \
+            --arg addon_id "$addon_id" \
+            --arg version "$version" \
+            --arg update_link "$update_link" \
+            '{addons: {($addon_id): {updates: [{version: $version, update_link: $update_link}]}}}' \
+            > release/updates.json
+
+      - name: Upload release assets
+        if: github.ref_type == 'tag'
+        uses: actions/upload-artifact@v7
+        with:
+          name: firefox-release
+          path: |
+            release/chatgpt-thread-exporter-firefox.xpi
+            release/chatgpt-thread-exporter-source.zip
+            release/updates.json
+          if-no-files-found: error
+          retention-days: 14
+          # The XPI and source archive are already compressed.
           compression-level: 0
 
   release:
@@ -64,10 +136,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download Firefox extension
+      - name: Download release assets
         uses: actions/download-artifact@v8
         with:
-          name: firefox-extension
+          name: firefox-release
           path: release
 
       - name: Publish GitHub release
@@ -78,6 +150,8 @@ jobs:
         run: |
           gh release create "$RELEASE_TAG" \
             release/chatgpt-thread-exporter-firefox.xpi \
+            release/chatgpt-thread-exporter-source.zip \
+            release/updates.json \
             --repo "$REPOSITORY" \
             --verify-tag \
             --generate-notes \

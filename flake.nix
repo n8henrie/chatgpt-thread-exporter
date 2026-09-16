@@ -1,17 +1,10 @@
 {
   description = "Rust/WASM Firefox extension for exporting ChatGPT threads";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs =
-    { nixpkgs, rust-overlay, ... }:
+    { nixpkgs, ... }:
     let
       systems = [
         "aarch64-darwin"
@@ -26,25 +19,27 @@
     eachSystem (
       system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ rust-overlay.overlays.default ];
-        };
-        extension = pkgs.callPackage ./package.nix { };
+        pkgs = import nixpkgs { inherit system; };
+        unpacked = pkgs.callPackage ./package.nix { };
+        archive = pkgs.callPackage ./archive.nix { extension = unpacked; };
       in
       {
         packages = {
-          default = extension;
-          debug = extension.unpacked;
+          default = archive;
+          debug = unpacked;
         };
 
-        checks.default = extension;
+        checks.default = archive;
 
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ extension ];
+          inputsFrom = [ unpacked ];
           packages = [
             pkgs.actionlint
+            pkgs.clippy
             pkgs.nixfmt
+            pkgs.rustfmt
+            pkgs.web-ext
+            pkgs.zip
           ];
         };
 
