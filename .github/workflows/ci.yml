@@ -31,17 +31,6 @@ jobs:
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@v3
 
-      - name: Configure self-hosted updates
-        if: github.ref_type == 'tag'
-        env:
-          REPOSITORY: ${{ github.repository }}
-          SERVER_URL: ${{ github.server_url }}
-        run: |
-          jq --arg update_url "$SERVER_URL/$REPOSITORY/releases/latest/download/updates.json" \
-            '.browser_specific_settings.gecko.update_url = $update_url' \
-            extension/manifest.json > extension/manifest.json.new
-          mv extension/manifest.json.new extension/manifest.json
-
       - name: Build
         run: nix develop --command make build
 
