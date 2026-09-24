@@ -78,7 +78,7 @@ jobs:
             --source-dir extension \
             --artifacts-dir signed \
             --ignore-files "*.ts" "*.d.ts" \
-            --channel unlisted \
+            --channel listed \
             --upload-source-code release/chatgpt-thread-exporter-source.zip \
             --no-config-discovery \
             --no-input \
