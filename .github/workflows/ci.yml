@@ -66,56 +66,30 @@ jobs:
           zip -q -d release/chatgpt-thread-exporter-source.zip extension/manifest.json
           zip -q release/chatgpt-thread-exporter-source.zip extension/manifest.json
 
-      - name: Sign extension with Mozilla
+      - name: Submit extension to Mozilla Add-ons
         if: github.ref_type == 'tag'
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
-          mkdir -p signed
-          # Mozilla signing and approval can exceed web-ext's five-minute default.
           nix develop --command web-ext sign \
             --source-dir extension \
-            --artifacts-dir signed \
             --ignore-files "*.ts" "*.d.ts" \
             --channel listed \
             --upload-source-code release/chatgpt-thread-exporter-source.zip \
+            --approval-timeout 0 \
             --no-config-discovery \
-            --no-input \
-            --timeout 900000
-          signed_xpi="$(find signed -maxdepth 1 -type f -name '*.xpi' -print -quit)"
-          test -n "$signed_xpi"
-          cp "$signed_xpi" release/chatgpt-thread-exporter-firefox.xpi
-
-      - name: Generate update manifest
-        if: github.ref_type == 'tag'
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          REPOSITORY: ${{ github.repository }}
-          SERVER_URL: ${{ github.server_url }}
-        run: |
-          addon_id="$(jq -r '.browser_specific_settings.gecko.id' extension/manifest.json)"
-          version="$(jq -r '.version' extension/manifest.json)"
-          update_link="$SERVER_URL/$REPOSITORY/releases/download/$RELEASE_TAG/chatgpt-thread-exporter-firefox.xpi"
-          jq -n \
-            --arg addon_id "$addon_id" \
-            --arg version "$version" \
-            --arg update_link "$update_link" \
-            '{addons: {($addon_id): {updates: [{version: $version, update_link: $update_link}]}}}' \
-            > release/updates.json
+            --no-input
 
       - name: Upload release assets
         if: github.ref_type == 'tag'
         uses: actions/upload-artifact@v7
         with:
           name: firefox-release
-          path: |
-            release/chatgpt-thread-exporter-firefox.xpi
-            release/chatgpt-thread-exporter-source.zip
-            release/updates.json
+          path: release/chatgpt-thread-exporter-source.zip
           if-no-files-found: error
           retention-days: 14
-          # The XPI and source archive are already compressed.
+          # The source archive is already compressed.
           compression-level: 0
 
   release:
@@ -139,9 +113,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           gh release create "$RELEASE_TAG" \
-            release/chatgpt-thread-exporter-firefox.xpi \
             release/chatgpt-thread-exporter-source.zip \
-            release/updates.json \
             --repo "$REPOSITORY" \
             --verify-tag \
             --generate-notes \

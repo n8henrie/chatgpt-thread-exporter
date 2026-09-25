@@ -26,10 +26,7 @@ assert.deepEqual(
   { required: ["none"] },
 );
 assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "142.0");
-const updateUrl = manifest.browser_specific_settings.gecko.update_url;
-if (updateUrl !== undefined) {
-  assert.match(updateUrl, /^https:\/\//u);
-}
+assert.equal(manifest.browser_specific_settings.gecko.update_url, undefined);
 
 const cargoToml = await readFile(join(root, "Cargo.toml"), "utf8");
 const cargoVersion = cargoToml.match(/^version = "([^"]+)"$/mu)?.[1];
@@ -47,20 +44,14 @@ assert.match(workflow, /nix develop --command make build/u);
 assert.match(workflow, /nix develop --command make test/u);
 assert.match(workflow, /nix develop --command make lint/u);
 assert.match(workflow, /dist\/chatgpt-thread-exporter-firefox\.xpi/u);
-assert.match(
-  workflow,
-  /releases\/latest\/download\/updates\.json/u,
-  "release builds must inject a stable update manifest URL",
-);
 assert.match(workflow, /web-ext sign/u);
-assert.match(workflow, /--channel unlisted/u);
+assert.match(workflow, /--channel listed/u);
 assert.match(workflow, /--upload-source-code/u);
 assert.match(workflow, /AMO_JWT_ISSUER/u);
 assert.match(workflow, /AMO_JWT_SECRET/u);
 assert.match(workflow, /WEB_EXT_API_KEY/u);
 assert.match(workflow, /WEB_EXT_API_SECRET/u);
 assert.doesNotMatch(workflow, /--api-key|--api-secret/u);
-assert.match(workflow, /release\/updates\.json/u);
 
 const requiredAssets = [
   "manifest.json",
