@@ -11,8 +11,7 @@
         "required": [
           "none"
         ]
-      },
-      "update_url": "https://github.com/n8henrie/chatgpt-thread-exporter/releases/latest/download/updates.json"
+      }
     }
   },
   "permissions": [
