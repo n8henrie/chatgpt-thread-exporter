@@ -168,7 +168,7 @@ assert.match(makefile, /^ci: build test lint$/mu);
 assert.match(makefile, /wasm-pack build/u);
 assert.match(makefile, /--target web/u);
 assert.match(makefile, /--no-pack/u);
-assert.match(makefile, /wasm-opt -Oz/u);
+assert.match(makefile, /wasm-opt --enable-bulk-memory-opt -Oz/u);
 assert.match(makefile, /web-ext lint/u);
 assert.match(makefile, /--self-hosted/u);
 assert.match(makefile, /--warnings-as-errors/u);
