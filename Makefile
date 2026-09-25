@@ -3,7 +3,7 @@
 build: stage package
 
 stage:
-	wasm-pack build --target web --out-dir target/wasm-pack --out-name wasm --no-pack --mode no-install -- --locked
+	CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$(CURDIR)=." wasm-pack build --target web --out-dir target/wasm-pack --out-name wasm --no-pack --mode no-install -- --locked
 	mv target/wasm-pack/wasm.js target/wasm-pack/wasm.d.ts extension
 	wasm-opt --enable-bulk-memory-opt -Oz target/wasm-pack/wasm_bg.wasm -o extension/wasm_bg.wasm
 	tsc
