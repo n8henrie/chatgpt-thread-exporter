@@ -118,6 +118,7 @@ pub(crate) fn build_archive(input: ArchiveInput) -> Result<ArchivePlan, String> 
     Ok(ArchivePlan { jobs, unresolved })
 }
 
+#[allow(clippy::too_many_lines)]
 fn artifact_output(
     root: &str,
     artifact: &ArtifactPlan,
