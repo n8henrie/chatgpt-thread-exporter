@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::artifacts::encode_markdown_path;
 use crate::model::{
@@ -299,11 +299,7 @@ fn build_manifest(
     })
 }
 
-fn build_artifact_index(
-    title: &str,
-    warnings: &[String],
-    records: &[ArtifactRecord],
-) -> String {
+fn build_artifact_index(title: &str, warnings: &[String], records: &[ArtifactRecord]) -> String {
     let mut lines = vec![
         String::from("# Artifact index"),
         String::new(),
@@ -347,7 +343,11 @@ fn build_artifact_index(
     }
 
     if !warnings.is_empty() {
-        lines.extend([String::new(), String::from("## Export warnings"), String::new()]);
+        lines.extend([
+            String::new(),
+            String::from("## Export warnings"),
+            String::new(),
+        ]);
         lines.extend(
             warnings
                 .iter()

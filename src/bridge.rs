@@ -8,9 +8,7 @@ pub(crate) fn select_account_id(payload: &Value, workspace_id: Option<&str>) -> 
     let accounts = record.get("accounts").and_then(Value::as_object);
 
     if let (Some(workspace_id), Some(accounts)) = (workspace_id, accounts)
-        && let Some(identifier) = accounts
-            .get(workspace_id)
-            .and_then(account_id_from_entry)
+        && let Some(identifier) = accounts.get(workspace_id).and_then(account_id_from_entry)
     {
         return Some(identifier);
     }
@@ -60,7 +58,9 @@ pub(crate) fn select_account_id(payload: &Value, workspace_id: Option<&str>) -> 
 
 pub(crate) fn resolved_file_from_payload(payload: &Value) -> Result<ResolvedFile, String> {
     let Some(record) = payload.as_object() else {
-        return Err(String::from("The ChatGPT file resolver returned an invalid response"));
+        return Err(String::from(
+            "The ChatGPT file resolver returned an invalid response",
+        ));
     };
     if record
         .get("status")

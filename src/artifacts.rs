@@ -8,8 +8,8 @@ use crate::model::{
 };
 use crate::security::{
     absolute_chatgpt_url, build_file_download_path, build_sandbox_download_path,
-    is_allowed_artifact_api_path, is_windows_reserved_filename, normalize_file_id,
-    percent_decode, percent_encode_component, trusted_https_url,
+    is_allowed_artifact_api_path, is_windows_reserved_filename, normalize_file_id, percent_decode,
+    percent_encode_component, trusted_https_url,
 };
 
 struct ScanContext<'a> {
@@ -69,11 +69,7 @@ pub(crate) fn build_plans<'a>(
     }
 
     candidates.extend(dom_artifacts.iter().filter_map(candidate_from_dom));
-    assign_paths(
-        deduplicate(candidates),
-        source_url,
-        conversation_id,
-    )
+    assign_paths(deduplicate(candidates), source_url, conversation_id)
 }
 
 fn direction_for_role(role: &str) -> Direction {
@@ -194,19 +190,10 @@ fn scan_string(
 ) {
     let metadata = CandidateMetadata::default();
     for pointer in extract_embedded_pointers(text) {
-        output.push(candidate_from_pointer(
-            pointer,
-            context,
-            path,
-            &metadata,
-        ));
+        output.push(candidate_from_pointer(pointer, context, path, &metadata));
     }
 
-    if path
-        .last()
-        .is_some_and(|key| is_pointer_key(key))
-        && looks_like_artifact_pointer(text)
-    {
+    if path.last().is_some_and(|key| is_pointer_key(key)) && looks_like_artifact_pointer(text) {
         output.push(candidate_from_pointer(
             text.to_owned(),
             context,
@@ -226,10 +213,8 @@ fn candidate_from_object(
     let mime_type = raw_mime_type.filter(|value| value.contains('/'));
     let size_bytes = first_object_u64(map, &["size_bytes", "size", "file_size"]);
     let file_key_context = map.keys().any(|key| is_file_context_key(key));
-    let has_file_context = explicit_name.is_some()
-        || mime_type.is_some()
-        || size_bytes.is_some()
-        || file_key_context;
+    let has_file_context =
+        explicit_name.is_some() || mime_type.is_some() || size_bytes.is_some() || file_key_context;
     let name = explicit_name.or_else(|| {
         file_key_context
             .then(|| first_object_string(map, &["name", "title"]))
@@ -267,12 +252,7 @@ fn candidate_from_object(
     }
 
     let pointer = pointer.filter(|value| looks_like_artifact_pointer(value))?;
-    Some(candidate_from_pointer(
-        pointer,
-        context,
-        path,
-        &metadata,
-    ))
+    Some(candidate_from_pointer(pointer, context, path, &metadata))
 }
 
 fn candidate_from_pointer(
@@ -331,7 +311,11 @@ fn deduplicate(candidates: Vec<ArtifactCandidate>) -> Vec<ArtifactCandidate> {
         let existing_index = pointer_key
             .as_ref()
             .and_then(|key| pointer_indexes.get(key).copied())
-            .or_else(|| alias.as_ref().and_then(|key| alias_indexes.get(key).copied()));
+            .or_else(|| {
+                alias
+                    .as_ref()
+                    .and_then(|key| alias_indexes.get(key).copied())
+            });
 
         if let Some(index) = existing_index {
             merge_candidate(&mut output[index], candidate);
@@ -447,10 +431,7 @@ fn assign_paths(
                 suggested_name: clean_name,
                 mime_type: candidate.mime_type,
                 size_bytes: candidate.size_bytes,
-                relative_path: format!(
-                    "{}/{prefixed_name}",
-                    candidate.direction.directory()
-                ),
+                relative_path: format!("{}/{prefixed_name}", candidate.direction.directory()),
                 source: candidate.source,
                 resolution,
             }
@@ -467,14 +448,9 @@ fn resolution_requests(
     for pointer in std::iter::once(candidate.pointer.as_str())
         .chain(candidate.pointer_aliases.iter().map(String::as_str))
     {
-        let request = resolution_for_pointer(
-            pointer,
-            &candidate.message_id,
-            source_url,
-            conversation_id,
-        );
-        if !matches!(&request, ResolutionRequest::Unresolved { .. })
-            && !requests.contains(&request)
+        let request =
+            resolution_for_pointer(pointer, &candidate.message_id, source_url, conversation_id);
+        if !matches!(&request, ResolutionRequest::Unresolved { .. }) && !requests.contains(&request)
         {
             requests.push(request);
         }
@@ -554,7 +530,10 @@ fn artifact_name(candidate: &ArtifactCandidate) -> String {
         name.push_str(extension_for_mime(candidate.mime_type.as_deref()));
     }
     if name.is_empty() || name == ".bin" {
-        format!("artifact{}", extension_for_mime(candidate.mime_type.as_deref()))
+        format!(
+            "artifact{}",
+            extension_for_mime(candidate.mime_type.as_deref())
+        )
     } else {
         name
     }
@@ -616,16 +595,9 @@ fn is_pointer_key(key: &str) -> bool {
 
 fn is_file_context_key(key: &str) -> bool {
     let normalized = key.to_ascii_lowercase();
-    [
-        "file",
-        "asset",
-        "attachment",
-        "download",
-        "image",
-        "audio",
-    ]
-    .iter()
-    .any(|needle| normalized.contains(needle))
+    ["file", "asset", "attachment", "download", "image", "audio"]
+        .iter()
+        .any(|needle| normalized.contains(needle))
 }
 
 fn extract_embedded_pointers(text: &str) -> Vec<String> {
@@ -660,8 +632,7 @@ fn extract_embedded_pointers(text: &str) -> Vec<String> {
 }
 
 fn is_pointer_terminator(character: char) -> bool {
-    character.is_whitespace()
-        || matches!(character, ')' | ']' | '}' | '>' | '"' | '\'' | '`')
+    character.is_whitespace() || matches!(character, ')' | ']' | '}' | '>' | '"' | '\'' | '`')
 }
 
 fn filename_from_pointer(pointer: &str) -> String {
@@ -720,7 +691,9 @@ fn has_extension(value: &str) -> bool {
     };
     !extension.is_empty()
         && extension.len() <= 12
-        && extension.chars().all(|character| character.is_ascii_alphanumeric())
+        && extension
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric())
 }
 
 fn extension_for_mime(mime_type: Option<&str>) -> &'static str {
@@ -778,7 +751,10 @@ mod tests {
 
     #[test]
     fn classifies_common_pointer_types() {
-        assert_eq!(classify_pointer("sediment://file-12345"), PointerKind::Sediment);
+        assert_eq!(
+            classify_pointer("sediment://file-12345"),
+            PointerKind::Sediment
+        );
         assert_eq!(
             classify_pointer("sandbox:/mnt/data/report.pdf"),
             PointerKind::Sandbox

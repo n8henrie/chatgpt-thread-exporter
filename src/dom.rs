@@ -37,7 +37,9 @@ fn render_element(
     if matches!(
         tag.as_str(),
         "script" | "style" | "svg" | "button" | "nav" | "textarea"
-    ) || attributes.get("aria-hidden").is_some_and(|value| value == "true")
+    ) || attributes
+        .get("aria-hidden")
+        .is_some_and(|value| value == "true")
     {
         return String::new();
     }
@@ -92,8 +94,8 @@ fn render_element(
                 list_depth: context.list_depth.saturating_add(1),
             },
         ),
-        "p" | "div" | "section" | "article" | "main" | "header" | "footer"
-        | "figure" | "figcaption" | "dl" | "dt" | "dd" => {
+        "p" | "div" | "section" | "article" | "main" | "header" | "footer" | "figure"
+        | "figcaption" | "dl" | "dt" | "dd" => {
             format!("\n\n{}\n\n", render_children(children, context))
         }
         _ => render_children(children, context),
@@ -107,10 +109,7 @@ fn render_children(children: &[DomNode], context: RenderContext) -> String {
         .collect()
 }
 
-fn render_preformatted(
-    attributes: &BTreeMap<String, String>,
-    children: &[DomNode],
-) -> String {
+fn render_preformatted(attributes: &BTreeMap<String, String>, children: &[DomNode]) -> String {
     let mut text = collect_text(children);
     if text.ends_with('\n') {
         text.pop();
@@ -120,10 +119,7 @@ fn render_preformatted(
     format!("\n\n{fence}{language}\n{text}\n{fence}\n\n")
 }
 
-fn discover_code_language(
-    attributes: &BTreeMap<String, String>,
-    children: &[DomNode],
-) -> String {
+fn discover_code_language(attributes: &BTreeMap<String, String>, children: &[DomNode]) -> String {
     attributes
         .get("data-language")
         .and_then(|value| safe_language(value))
@@ -286,10 +282,7 @@ fn render_table(children: &[DomNode]) -> String {
 
     let mut lines = Vec::with_capacity(matrix.len().saturating_add(1));
     lines.push(format!("| {} |", matrix[0].join(" | ")));
-    lines.push(format!(
-        "| {} |",
-        vec!["---"; width].join(" | ")
-    ));
+    lines.push(format!("| {} |", vec!["---"; width].join(" | ")));
     lines.extend(
         matrix
             .iter()
@@ -310,8 +303,7 @@ fn collect_table_rows<'a>(nodes: &'a [DomNode], output: &mut Vec<Vec<&'a [DomNod
                     .iter()
                     .filter_map(|child| match child {
                         DomNode::Element { tag, children, .. }
-                            if tag.eq_ignore_ascii_case("td")
-                                || tag.eq_ignore_ascii_case("th") =>
+                            if tag.eq_ignore_ascii_case("td") || tag.eq_ignore_ascii_case("th") =>
                         {
                             Some(children.as_slice())
                         }
@@ -449,9 +441,7 @@ fn longest_backtick_run(value: &str) -> usize {
 
 fn is_safe_reference_url(value: &str) -> bool {
     let lower = value.trim().to_ascii_lowercase();
-    lower.starts_with("https://")
-        || lower.starts_with("http://")
-        || lower.starts_with("mailto:")
+    lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:")
 }
 
 fn escape_markdown_text(value: &str) -> String {
@@ -466,7 +456,10 @@ fn escape_markdown_text(value: &str) -> String {
 }
 
 fn escape_markdown_label(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('[', "\\[").replace(']', "\\]")
+    value
+        .replace('\\', "\\\\")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
 }
 
 fn escape_markdown_destination(value: &str) -> String {

@@ -86,10 +86,7 @@ pub(crate) fn normalize_sandbox_path(pointer: &str) -> Option<String> {
     let without_scheme = value
         .strip_prefix("sandbox:")
         .or_else(|| value.starts_with("/mnt/data/").then_some(value))?;
-    let raw_path = without_scheme
-        .split(['?', '#'])
-        .next()
-        .unwrap_or_default();
+    let raw_path = without_scheme.split(['?', '#']).next().unwrap_or_default();
     let path = percent_decode(raw_path);
 
     if !path.starts_with("/mnt/data/")
@@ -208,7 +205,10 @@ pub(crate) fn sanitize_path_segment(value: &str) -> String {
                 break;
             }
         }
-        if matches!(character, '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+        if matches!(
+            character,
+            '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
+        ) {
             output.push('-');
             output_length += 1;
         } else {
@@ -267,7 +267,12 @@ pub(crate) fn inline_base64_size(value: &str) -> Option<u64> {
     {
         return None;
     }
-    let padding = value.as_bytes().iter().rev().take_while(|byte| **byte == b'=').count();
+    let padding = value
+        .as_bytes()
+        .iter()
+        .rev()
+        .take_while(|byte| **byte == b'=')
+        .count();
     if padding > 2 || value[..value.len().saturating_sub(padding)].contains('=') {
         return None;
     }
@@ -282,9 +287,9 @@ fn split_chatgpt_url(value: &str) -> Option<(&'static str, &str)> {
         return None;
     }
     CHATGPT_ORIGINS.iter().find_map(|origin| {
-        value.strip_prefix(origin).and_then(|path| {
-            (path.is_empty() || path.starts_with('/')).then_some((*origin, path))
-        })
+        value
+            .strip_prefix(origin)
+            .and_then(|path| (path.is_empty() || path.starts_with('/')).then_some((*origin, path)))
     })
 }
 
@@ -317,9 +322,8 @@ fn is_safe_api_identifier(value: &str) -> bool {
 
 fn nonempty_identifier(value: &str) -> Option<&str> {
     let trimmed = value.trim();
-    let valid = !trimmed.is_empty()
-        && trimmed.len() <= 512
-        && !trimmed.chars().any(char::is_control);
+    let valid =
+        !trimmed.is_empty() && trimmed.len() <= 512 && !trimmed.chars().any(char::is_control);
     valid.then_some(trimmed)
 }
 
@@ -344,10 +348,9 @@ pub(crate) fn percent_decode(value: &str) -> String {
     let mut index = 0;
     while index < bytes.len() {
         if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(high), Some(low)) = (
-                hex_value(bytes[index + 1]),
-                hex_value(bytes[index + 2]),
-            ) {
+            if let (Some(high), Some(low)) =
+                (hex_value(bytes[index + 1]), hex_value(bytes[index + 2]))
+            {
                 output.push(high * 16 + low);
                 index += 3;
                 continue;
@@ -519,8 +522,8 @@ fn redact_jwt_tokens(value: &str) -> String {
 mod tests {
     use super::{
         build_sandbox_download_path, conversation_context, inline_base64_size,
-        is_allowed_artifact_api_path, normalize_sandbox_path, safe_archive_path,
-        sanitize_error, sanitize_path_segment, trusted_https_url,
+        is_allowed_artifact_api_path, normalize_sandbox_path, safe_archive_path, sanitize_error,
+        sanitize_path_segment, trusted_https_url,
     };
 
     #[test]
@@ -528,7 +531,10 @@ mod tests {
         let context = conversation_context(
             "https://chatgpt.com/g/example/c/conversation-123?model=test#fragment",
         )?;
-        assert_eq!(context.source_url, "https://chatgpt.com/g/example/c/conversation-123");
+        assert_eq!(
+            context.source_url,
+            "https://chatgpt.com/g/example/c/conversation-123"
+        );
         assert_eq!(context.id.as_deref(), Some("conversation-123"));
         assert_eq!(
             context.api_path.as_deref(),
@@ -539,11 +545,17 @@ mod tests {
 
     #[test]
     fn validates_artifact_hosts_conservatively() {
-        assert!(trusted_https_url("https://files.oaiusercontent.com/report.pdf"));
+        assert!(trusted_https_url(
+            "https://files.oaiusercontent.com/report.pdf"
+        ));
         assert!(trusted_https_url("https://cdn.oaistatic.com/image.png"));
-        assert!(!trusted_https_url("https://openai.com%40attacker.example/report.pdf"));
+        assert!(!trusted_https_url(
+            "https://openai.com%40attacker.example/report.pdf"
+        ));
         assert!(!trusted_https_url("https://attacker.example/report.pdf"));
-        assert!(!trusted_https_url("https://chatgpt.com/\\attacker.example/file"));
+        assert!(!trusted_https_url(
+            "https://chatgpt.com/\\attacker.example/file"
+        ));
     }
 
     #[test]

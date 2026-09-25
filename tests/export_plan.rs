@@ -54,8 +54,8 @@ fn exports_the_active_branch_and_artifacts() -> Result<(), Box<dyn Error>> {
 #[test]
 fn sanitizes_reserved_windows_filenames() -> Result<(), Box<dyn Error>> {
     let mut input: Value = serde_json::from_str(FIXTURE)?;
-    input["structured_conversation"]["mapping"]["user-1"]["message"]["metadata"]
-        ["attachments"][0]["file_name"] = Value::String(String::from("CON.txt"));
+    input["structured_conversation"]["mapping"]["user-1"]["message"]["metadata"]["attachments"]
+        [0]["file_name"] = Value::String(String::from("CON.txt"));
 
     let output = build_export_plan_json(&serde_json::to_string(&input)?)?;
     let plan: Value = serde_json::from_str(&output)?;

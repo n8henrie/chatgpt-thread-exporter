@@ -345,17 +345,9 @@ pub(crate) struct ArchiveJob {
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub(crate) enum ArchiveSource {
-    Inline {
-        base64: String,
-        mime_type: String,
-    },
-    Remote {
-        url: String,
-    },
-    Text {
-        text: String,
-        mime_type: String,
-    },
+    Inline { base64: String, mime_type: String },
+    Remote { url: String },
+    Text { text: String, mime_type: String },
 }
 
 #[cfg(test)]

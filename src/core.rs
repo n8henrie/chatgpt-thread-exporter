@@ -73,12 +73,7 @@ pub(crate) fn build_plan(input: ExportInput) -> ExportPlan {
         &artifacts,
         "",
     );
-    let branches = build_branch_plans(
-        &selection,
-        &source_url,
-        &generated_at,
-        &artifacts,
-    );
+    let branches = build_branch_plans(&selection, &source_url, &generated_at, &artifacts);
 
     let root_name = build_root_name(&selection.title, selection.conversation_id.as_deref());
     let extraction = selection.extraction.to_owned();
@@ -140,12 +135,7 @@ fn structured_selection(
         });
     let mut message_cache = HashMap::new();
     let active = active_node.map_or_else(Vec::new, |node_id| {
-        build_path(
-            &conversation.mapping,
-            node_id,
-            warnings,
-            &mut message_cache,
-        )
+        build_path(&conversation.mapping, node_id, warnings, &mut message_cache)
     });
     let alternates = if include_alternates {
         build_alternates(
@@ -305,10 +295,7 @@ fn normalize_node(node_id: &str, node: &ConversationNode) -> NormalizedMessage {
         .unwrap_or(false);
     let internal_content = matches!(
         content_type.as_str(),
-        "thoughts"
-            | "reasoning_recap"
-            | "model_editable_context"
-            | "user_editable_context"
+        "thoughts" | "reasoning_recap" | "model_editable_context" | "user_editable_context"
     );
     let recipient_is_visible = message
         .recipient
@@ -478,7 +465,11 @@ fn build_root_name(title: &str, conversation_id: Option<&str>) -> String {
         }
     }
     let slug = slug.trim_matches('-');
-    let base = if slug.is_empty() { "conversation" } else { slug };
+    let base = if slug.is_empty() {
+        "conversation"
+    } else {
+        slug
+    };
     conversation_id.map_or_else(
         || base.to_owned(),
         |identifier| {

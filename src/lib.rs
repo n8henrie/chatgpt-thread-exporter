@@ -10,7 +10,7 @@ mod security;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 

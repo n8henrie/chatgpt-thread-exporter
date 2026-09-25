@@ -79,10 +79,7 @@ fn push_message(
         .collect();
     let mut body = message.markdown.trim().to_owned();
     for artifact in &message_artifacts {
-        let destination = encode_markdown_path(&format!(
-            "{path_prefix}{}",
-            artifact.relative_path
-        ));
+        let destination = encode_markdown_path(&format!("{path_prefix}{}", artifact.relative_path));
         for pointer in std::iter::once(&artifact.pointer).chain(artifact.pointer_aliases.iter()) {
             if !pointer.is_empty() {
                 body = body.replace(pointer.as_str(), &destination);
@@ -121,10 +118,8 @@ fn push_message(
     if !unlinked.is_empty() {
         let _ = writeln!(output, "### Artifacts\n");
         for artifact in unlinked {
-            let destination = encode_markdown_path(&format!(
-                "{path_prefix}{}",
-                artifact.relative_path
-            ));
+            let destination =
+                encode_markdown_path(&format!("{path_prefix}{}", artifact.relative_path));
             let _ = writeln!(
                 output,
                 "- [{}]({destination}) _({})_",
@@ -173,8 +168,7 @@ fn render_content_object(map: &Map<String, Value>) -> String {
     }
 
     clean_proprietary_markers(
-        first_object_string(map, &["text", "result", "summary", "content"])
-            .unwrap_or_default(),
+        first_object_string(map, &["text", "result", "summary", "content"]).unwrap_or_default(),
     )
 }
 
@@ -239,11 +233,7 @@ fn collect_references(value: &Value) -> Vec<Reference> {
     output
 }
 
-fn visit_references(
-    value: &Value,
-    output: &mut Vec<Reference>,
-    seen: &mut HashSet<String>,
-) {
+fn visit_references(value: &Value, output: &mut Vec<Reference>, seen: &mut HashSet<String>) {
     match value {
         Value::Array(items) => {
             for item in items {
@@ -296,43 +286,43 @@ fn is_safe_reference_url(url: &str) -> bool {
         return true;
     };
     let query = query_and_fragment.split('#').next().unwrap_or_default();
-    !query.split('&').filter_map(|pair| pair.split('=').next()).any(|key| {
-        matches!(
-            key,
-            "token"
-                | "access_token"
-                | "sig"
-                | "signature"
-                | "policy"
-                | "key-pair-id"
-                | "expires"
-                | "se"
-                | "sp"
-                | "sv"
-                | "st"
-                | "x-amz-algorithm"
-                | "x-amz-credential"
-                | "x-amz-date"
-                | "x-amz-expires"
-                | "x-amz-security-token"
-                | "x-amz-signature"
-                | "x-goog-algorithm"
-                | "x-goog-credential"
-                | "x-goog-date"
-                | "x-goog-expires"
-                | "x-goog-signature"
-        )
-    })
+    !query
+        .split('&')
+        .filter_map(|pair| pair.split('=').next())
+        .any(|key| {
+            matches!(
+                key,
+                "token"
+                    | "access_token"
+                    | "sig"
+                    | "signature"
+                    | "policy"
+                    | "key-pair-id"
+                    | "expires"
+                    | "se"
+                    | "sp"
+                    | "sv"
+                    | "st"
+                    | "x-amz-algorithm"
+                    | "x-amz-credential"
+                    | "x-amz-date"
+                    | "x-amz-expires"
+                    | "x-amz-security-token"
+                    | "x-amz-signature"
+                    | "x-goog-algorithm"
+                    | "x-goog-credential"
+                    | "x-goog-date"
+                    | "x-goog-expires"
+                    | "x-goog-signature"
+            )
+        })
 }
 
 fn object_string<'a>(map: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
     map.get(key).and_then(Value::as_str)
 }
 
-fn first_object_string<'a>(
-    map: &'a Map<String, Value>,
-    keys: &[&str],
-) -> Option<&'a str> {
+fn first_object_string<'a>(map: &'a Map<String, Value>, keys: &[&str]) -> Option<&'a str> {
     keys.iter()
         .find_map(|key| object_string(map, key))
         .filter(|text| !text.trim().is_empty())
@@ -482,12 +472,17 @@ mod tests {
 
     #[test]
     fn removes_chatgpt_citation_markers() {
-        assert_eq!(clean_proprietary_markers("Text citesource end"), "Text  end");
+        assert_eq!(
+            clean_proprietary_markers("Text citesource end"),
+            "Text  end"
+        );
     }
 
     #[test]
     fn excludes_signed_file_urls_from_references() {
-        assert!(is_safe_reference_url("https://example.test/article?section=1"));
+        assert!(is_safe_reference_url(
+            "https://example.test/article?section=1"
+        ));
         assert!(!is_safe_reference_url(
             "https://files.oaiusercontent.com/private/file.pdf?sig=secret&se=2099-01-01"
         ));
