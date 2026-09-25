@@ -365,8 +365,7 @@ fn escape_markdown_inline(value: &str) -> String {
         .replace('[', "\\[")
         .replace(']', "\\]")
         .replace('`', "\\`")
-        .replace('\r', " ")
-        .replace('\n', " ")
+        .replace(['\r', '\n'], " ")
 }
 
 #[cfg(test)]
