@@ -18,7 +18,7 @@ test: stage
 	node tests/extension.mjs extension
 
 lint: stage
-	cargo fmt -- --config-path .rustfmt.toml
+	cargo fmt --check -- --config-path .rustfmt.toml
 	cargo clippy --locked --all-targets --all-features -- -D warnings -W clippy::pedantic
 	nixfmt --check archive.nix flake.nix package.nix
 	actionlint .github/workflows/ci.yml
