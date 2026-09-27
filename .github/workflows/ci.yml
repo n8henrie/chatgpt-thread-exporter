@@ -22,7 +22,8 @@ env:
 jobs:
   ci:
     name: Build, test, lint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -66,8 +67,43 @@ jobs:
           zip -q -d release/chatgpt-thread-exporter-source.zip extension/manifest.json
           zip -q release/chatgpt-thread-exporter-source.zip extension/manifest.json
 
-      - name: Submit extension to Mozilla Add-ons
+      - name: Upload release assets
         if: github.ref_type == 'tag'
+        uses: actions/upload-artifact@v7
+        with:
+          name: firefox-release
+          path: release/chatgpt-thread-exporter-source.zip
+          if-no-files-found: error
+          retention-days: 14
+          # The source archive is already compressed.
+          compression-level: 0
+
+  submit:
+    name: Submit to Mozilla Add-ons
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: release
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          name: firefox-release
+          path: release
+
+      - name: Build
+        run: nix develop --command make build
+
+      - name: Submit extension to Mozilla Add-ons
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
@@ -81,24 +117,14 @@ jobs:
             --no-config-discovery \
             --no-input
 
-      - name: Upload release assets
-        if: github.ref_type == 'tag'
-        uses: actions/upload-artifact@v7
-        with:
-          name: firefox-release
-          path: release/chatgpt-thread-exporter-source.zip
-          if-no-files-found: error
-          retention-days: 14
-          # The source archive is already compressed.
-          compression-level: 0
-
   release:
     name: Publish release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: ci
-    runs-on: ubuntu-24.04
+    needs: submit
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Download release assets
         uses: actions/download-artifact@v8
