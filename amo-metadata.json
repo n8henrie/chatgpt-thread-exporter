@@ -1,0 +1,18 @@
+{
+  "summary": {
+    "en-US": "Export ChatGPT conversations to Markdown with associated artifacts."
+  },
+  "description": {
+    "en-US": "Exports ChatGPT conversations to Markdown, including conversation structure, submitted files, generated artifacts, and optional raw conversation data."
+  },
+  "categories": [
+    "download-management"
+  ],
+  "homepage": {
+    "en-US": "https://github.com/n8henrie/chatgpt-thread-exporter"
+  },
+  "contributions_url": "https://n8henrie.com/donate/",
+  "version": {
+    "license": "MIT"
+  }
+}

@@ -112,6 +112,7 @@ jobs:
             --source-dir extension \
             --ignore-files "*.ts" "*.d.ts" \
             --channel listed \
+            --amo-metadata amo-metadata.json \
             --upload-source-code release/chatgpt-thread-exporter-source.zip \
             --approval-timeout 0 \
             --no-config-discovery \
