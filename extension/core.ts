@@ -20,7 +20,7 @@
 
     let imported: unknown;
     try {
-      imported = await import("./wasm.js");
+      imported = await import(browser.runtime.getURL("wasm.js"));
     } catch (_error) {
       throw new Error(
         "CORE_MODULE_IMPORT_FAILED: The generated Rust/WebAssembly JavaScript module could not be loaded.",
