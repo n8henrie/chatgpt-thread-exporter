@@ -25,7 +25,7 @@ lint: stage
 	web-ext lint --source-dir extension --ignore-files "*.ts" "*.d.ts" --self-hosted --warnings-as-errors
 	node tests/audit.mjs . extension
 
-format:
+fmt:
 	cargo fmt -- --config-path .rustfmt.toml
 	nixfmt archive.nix flake.nix package.nix
 

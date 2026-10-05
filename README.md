@@ -97,7 +97,7 @@ The default Nix package is built from the `debug` package, so the XPI archives t
 Formatting is separate and mutating:
 
 ```bash
-make format
+make fmt
 ```
 
 `Cargo.lock` and `flake.lock` should be committed before release.
