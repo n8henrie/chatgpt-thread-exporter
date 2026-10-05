@@ -125,6 +125,7 @@ interface ArchivePlan {
 }
 
 interface RustCore {
+  createArtifactResolver(artifacts: readonly ArtifactPlan[]): import("./wasm.js").ArtifactResolver;
   conversationContext(url: string): ConversationContext;
   selectAccountId(payload: unknown, workspaceId: string | null): string | null;
   parseResolvedFile(payload: unknown): ResolvedFile;

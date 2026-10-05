@@ -30,6 +30,7 @@
     const record = asRecord(imported);
     const initialize = record?.default;
     const requiredFunctions = [
+      "ArtifactResolver",
       "build_export_plan",
       "conversation_context",
       "select_account_id",
@@ -56,6 +57,9 @@
 
     const module = record as unknown as WasmModule;
     const core: RustCore = {
+      createArtifactResolver(artifacts) {
+        return new module.ArtifactResolver(JSON.stringify(artifacts));
+      },
       conversationContext(url: string): ConversationContext {
         return parseJson(module.conversation_context(url));
       },

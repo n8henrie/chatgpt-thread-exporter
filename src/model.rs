@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub(crate) const EXPORT_SCHEMA_VERSION: u32 = 1;
+pub(crate) const MAX_INLINE_ARTIFACT_BYTES: u64 = 16 * 1024 * 1024;
+pub(crate) const MAX_INLINE_EXPORT_BYTES: u64 = 32 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ExportInput {
@@ -300,7 +302,7 @@ pub(crate) struct ArchiveInput {
     pub(crate) extension_version: String,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ResolutionStatus {
     Resolved,
@@ -308,7 +310,7 @@ pub(crate) enum ResolutionStatus {
     Unresolved,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct ArtifactResolution {
     #[serde(rename = "artifact_id")]
     pub(crate) id: String,

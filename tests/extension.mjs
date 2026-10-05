@@ -9,6 +9,8 @@ await testStaticPopup();
 await testPopupBridge();
 await testPopupStartupFailure();
 await testContentBridge();
+await testConcurrentResolution();
+await testInlineReservation();
 await testBackgroundBridge();
 console.log("Extension bridge tests passed.");
 
@@ -407,4 +409,158 @@ async function eventually(predicate) {
     await new Promise((resolvePromise) => setImmediate(resolvePromise));
   }
   assert.fail("condition was not reached");
+}
+
+async function testConcurrentResolution() {
+  let listener;
+  let sentMessage;
+  let freed = false;
+  let next = 0;
+  let active = 0;
+  let peak = 0;
+  const pending = [];
+  const results = [];
+  const artifacts = Array.from({ length: 3 }, (_, index) => ({
+    id: `artifact-${index}`,
+    resolution: [{ kind: "api", path: `/backend-api/files/download/file-${index}` }],
+  }));
+  const core = {
+    conversationContext() {
+      return {
+        source_url: "https://chatgpt.com/c/example",
+        origin: "https://chatgpt.com",
+        conversation_id: "example",
+        conversation_path: "/backend-api/conversation/example",
+      };
+    },
+    runtimeInfo() { return { implementation: "rust-wasm", version: "0.3.1" }; },
+    selectAccountId() { return null; },
+    sanitizeError(message) { return String(message); },
+    parseResolvedFile(value) { return { url: value.download_url }; },
+    buildExportPlan() { return { artifacts, branches: [] }; },
+    createArtifactResolver(input) {
+      assert.equal(input, artifacts);
+      return {
+        worker_count() { return 2; },
+        next_request() {
+          if (next === artifacts.length) return undefined;
+          const index = next++;
+          return JSON.stringify({ index, ...artifacts[index].resolution[0] });
+        },
+        complete(index, value) {
+          assert.equal(freed, false, "Rust state must outlive all requests");
+          results[index] = { artifact_id: artifacts[index].id, ...JSON.parse(value) };
+        },
+        finish() { return JSON.stringify(results); },
+        free() { freed = true; },
+      };
+    },
+  };
+  const context = vm.createContext({
+    console: quietConsole(), URL, Headers, Uint8Array, atob, btoa, Blob,
+    Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 },
+    HTMLAnchorElement: class {},
+    ChatGptThreadExporterCore: { async load() { return core; } },
+    browser: {
+      runtime: {
+        getManifest() { return { version: "0.3.1" }; },
+        onMessage: { addListener(value) { listener = value; } },
+        async sendMessage(message) { sentMessage = message; return { queued: 3 }; },
+      },
+    },
+    document: {
+      cookie: "", title: "Example",
+      querySelector() { return null; }, querySelectorAll() { return []; },
+    },
+    location: { href: "https://chatgpt.com/c/example", origin: "https://chatgpt.com" },
+    async fetch(url) {
+      const path = new URL(url).pathname;
+      if (path.startsWith("/backend-api/files/download/")) {
+        active += 1;
+        peak = Math.max(peak, active);
+        return new Promise((resolveResponse) => {
+          pending.push(() => {
+            active -= 1;
+            resolveResponse({
+              ok: true,
+              async json() { return { download_url: "https://files.oaiusercontent.com/example.bin" }; },
+            });
+          });
+        });
+      }
+      return {
+        ok: true,
+        async json() { return { accessToken: "synthetic-session-for-testing-only" }; },
+      };
+    },
+  });
+  vm.runInContext(await readFile(resolve(extensionDirectory, "content.js"), "utf8"), context);
+  const exported = listener({ type: "CHATGPT_THREAD_EXPORTER_START_V1", options: {} });
+  await eventually(() => pending.length === 2);
+  assert.equal(active, 2, "independent requests should overlap");
+  pending[1]();
+  await eventually(() => pending.length === 3);
+  assert.equal(active, 2, "the next request must not wait for the slowest request");
+  pending[2]();
+  pending[0]();
+  await exported;
+  assert.equal(peak, 2, "the bridge must use Rust's concurrency setting");
+  assert.deepEqual(Array.from(sentMessage.resolutions, (result) => result.artifact_id),
+    ["artifact-0", "artifact-1", "artifact-2"]);
+  assert.equal(freed, true);
+}
+
+async function testInlineReservation() {
+  // Exercise the bridge with a rejected reservation: it must never read the bytes.
+  let listener;
+  let issued = false;
+  let freed = false;
+  let readBytes = false;
+  let reported;
+  const core = {
+    conversationContext() { return { source_url: "https://chatgpt.com/", origin: "https://chatgpt.com", conversation_id: null, conversation_path: null }; },
+    runtimeInfo() { return { implementation: "rust-wasm", version: "0.3.1" }; },
+    sanitizeError(message) { return String(message); },
+    buildExportPlan() { return { artifacts: [{ id: "inline" }], branches: [] }; },
+    createArtifactResolver() {
+      return {
+        worker_count() { return 1; },
+        next_request() {
+          if (issued) return undefined;
+          issued = true;
+          return JSON.stringify({ index: 0, kind: "page", url: "blob:https://chatgpt.com/example" });
+        },
+        reserve_inline(index, bytes) {
+          assert.equal(index, 0);
+          assert.equal(bytes, 4n);
+          throw new Error("The inline transfer budget is exhausted");
+        },
+        complete(index, response) { assert.equal(index, 0); reported = JSON.parse(response); },
+        finish() { return "[]"; },
+        free() { freed = true; },
+      };
+    },
+  };
+  const context = vm.createContext({
+    console: quietConsole(), URL, Headers, Uint8Array, atob, btoa, Blob,
+    Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 }, HTMLAnchorElement: class {},
+    ChatGptThreadExporterCore: { async load() { return core; } },
+    browser: { runtime: {
+      getManifest() { return { version: "0.3.1" }; },
+      onMessage: { addListener(value) { listener = value; } },
+      async sendMessage() { return { queued: 0 }; },
+    } },
+    document: { cookie: "", title: "Example", querySelector() { return null; }, querySelectorAll() { return []; } },
+    location: { href: "https://chatgpt.com/", origin: "https://chatgpt.com" },
+    async fetch() {
+      return { ok: true, async blob() {
+        return { size: 4, type: "image/png", async arrayBuffer() { readBytes = true; return new ArrayBuffer(4); } };
+      } };
+    },
+  });
+  vm.runInContext(await readFile(resolve(extensionDirectory, "content.js"), "utf8"), context);
+  await listener({ type: "CHATGPT_THREAD_EXPORTER_START_V1", options: {} });
+  assert.match(reported.error, /budget is exhausted/u);
+  assert.equal(readBytes, false);
+  assert.equal(freed, true);
 }

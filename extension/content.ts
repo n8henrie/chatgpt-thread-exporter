@@ -23,10 +23,6 @@
     truncated: boolean;
   }
 
-  interface InlineBudget {
-    remainingBytes: number;
-  }
-
   const runtimeGlobal = globalThis as typeof globalThis & {
     __CHATGPT_THREAD_EXPORTER_INSTALLED__?: string;
   };
@@ -77,8 +73,6 @@
   ] as const;
   const MAX_DOM_DEPTH = 96;
   const MAX_DOM_NODES = 100_000;
-  const MAX_INLINE_ARTIFACT_BYTES = 16 * 1024 * 1024;
-  const MAX_INLINE_EXPORT_BYTES = 32 * 1024 * 1024;
 
   browser.runtime.onMessage.addListener((message) => {
     const record = asRecord(message);
@@ -297,88 +291,57 @@
     artifacts: readonly ArtifactPlan[],
     apiClient: ChatGptApiClient | null,
   ): Promise<ArtifactResolution[]> {
-    const budget = { remainingBytes: MAX_INLINE_EXPORT_BYTES };
-    const output: ArtifactResolution[] = [];
-    for (const artifact of artifacts) {
-      output.push(await resolveArtifact(core, artifact, apiClient, budget));
+    if (artifacts.length === 0) {
+      return [];
     }
-    return output;
-  }
-
-  async function resolveArtifact(
-    core: RustCore,
-    artifact: ArtifactPlan,
-    apiClient: ChatGptApiClient | null,
-    budget: InlineBudget,
-  ): Promise<ArtifactResolution> {
-    let lastError: string | null = null;
-    for (const request of artifact.resolution) {
-      if (request.kind === "unresolved") {
-        lastError = request.reason;
-        continue;
-      }
-      try {
-        if (request.kind === "remote") {
-          return {
-            artifact_id: artifact.id,
-            status: "resolved",
-            resolved_url: request.url,
-          };
-        }
-        if (request.kind === "api") {
-          if (apiClient === null) {
-            throw new Error("Artifact resolution requires a structured ChatGPT session");
+    const resolver = core.createArtifactResolver(artifacts);
+    async function worker(): Promise<void> {
+      for (let task = resolver.next_request(); task != null; task = resolver.next_request()) {
+        const request = JSON.parse(task) as { index: number } & (
+          | { kind: "api"; path: string }
+          | { kind: "page"; url: string }
+        );
+        let response: unknown;
+        try {
+          if (request.kind === "api") {
+            if (apiClient === null) {
+              throw new Error("Artifact resolution requires a structured ChatGPT session");
+            }
+            response = { value: await apiClient.fetchResolver(request.path) };
+          } else {
+            const url = new URL(request.url, location.href);
+            if (url.protocol !== "blob:" && url.protocol !== "data:") {
+              throw new Error("The Rust core requested an unsupported in-page artifact URL");
+            }
+            const fetched = await fetch(url.href);
+            if (!fetched.ok) {
+              throw new Error(`In-page artifact fetch returned HTTP ${fetched.status}`);
+            }
+            const blob = await fetched.blob();
+            resolver.reserve_inline(request.index, BigInt(blob.size));
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            response = {
+              inline_base64: bytesToBase64(bytes),
+              inline_mime_type: blob.type || "application/octet-stream",
+            };
           }
-          const file = core.parseResolvedFile(await apiClient.fetchResolver(request.path));
-          return {
-            artifact_id: artifact.id,
-            status: "resolved",
-            resolved_url: file.url,
-            resolved_name: file.name,
-            resolved_mime_type: file.mime_type,
-            resolved_size_bytes: file.size_bytes,
-          };
+        } catch (error) {
+          response = { error: safeError(core, error) };
         }
-        return await resolvePageArtifact(artifact.id, request.url, budget);
-      } catch (error) {
-        lastError = safeError(core, error);
+        resolver.complete(request.index, JSON.stringify(response));
       }
     }
-
-    return {
-      artifact_id: artifact.id,
-      status: "unresolved",
-      error: safeError(core, lastError ?? "No downloadable artifact representation was found"),
-    };
-  }
-
-  async function resolvePageArtifact(
-    artifactId: string,
-    value: string,
-    budget: InlineBudget,
-  ): Promise<ArtifactResolution> {
-    const url = new URL(value, location.href);
-    if (url.protocol !== "blob:" && url.protocol !== "data:") {
-      throw new Error("The Rust core requested an unsupported in-page artifact URL");
+    try {
+      const workers = Array.from({ length: resolver.worker_count() }, worker);
+      const results = await Promise.allSettled(workers);
+      const failure = results.find((result) => result.status === "rejected");
+      if (failure?.status === "rejected") {
+        throw failure.reason;
+      }
+      return JSON.parse(resolver.finish()) as ArtifactResolution[];
+    } finally {
+      resolver.free();
     }
-    const response = await fetch(url.href);
-    if (!response.ok) {
-      throw new Error(`In-page artifact fetch returned HTTP ${response.status}`);
-    }
-    const blob = await response.blob();
-    const maximum = Math.min(MAX_INLINE_ARTIFACT_BYTES, budget.remainingBytes);
-    if (blob.size > maximum) {
-      throw new Error("The in-page artifact exceeded the inline transfer limit");
-    }
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    budget.remainingBytes -= bytes.byteLength;
-    return {
-      artifact_id: artifactId,
-      status: "resolved_inline",
-      inline_base64: bytesToBase64(bytes),
-      inline_mime_type: blob.type || "application/octet-stream",
-      resolved_size_bytes: bytes.byteLength,
-    };
   }
 
   function captureConversation(): CapturedConversation {

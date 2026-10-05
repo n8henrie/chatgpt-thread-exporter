@@ -5,7 +5,10 @@ mod core;
 mod dom;
 mod markdown;
 mod model;
+mod resolver;
 mod security;
+
+pub use resolver::ArtifactResolver;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
