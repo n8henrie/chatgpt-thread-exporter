@@ -142,7 +142,10 @@ fn inline_results_must_match_their_reservation() -> Result<(), Box<dyn std::erro
     resolver.reserve_inline(1, 1)?;
     let one_byte = r#"{"inline_base64":"AA==","inline_mime_type":"image/png"}"#;
     resolver.complete(0, one_byte)?;
-    resolver.complete(1, r#"{"inline_base64":"AAAA","inline_mime_type":"image/png"}"#)?;
+    resolver.complete(
+        1,
+        r#"{"inline_base64":"AAAA","inline_mime_type":"image/png"}"#,
+    )?;
     resolver.complete(2, one_byte)?;
     assert!(resolver.next_request()?.is_none());
     let results: Vec<Value> = serde_json::from_str(&resolver.finish()?)?;

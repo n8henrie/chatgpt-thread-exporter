@@ -6,8 +6,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::bridge::resolved_file_from_payload;
 use crate::model::{
-    ArtifactResolution, MAX_INLINE_ARTIFACT_BYTES, MAX_INLINE_EXPORT_BYTES,
-    ResolutionRequest, ResolutionStatus,
+    ArtifactResolution, MAX_INLINE_ARTIFACT_BYTES, MAX_INLINE_EXPORT_BYTES, ResolutionRequest,
+    ResolutionStatus,
 };
 use crate::security::{
     inline_base64_size, is_allowed_artifact_api_path, sanitize_error, trusted_https_url,
@@ -105,7 +105,10 @@ impl ArtifactResolver {
             return Ok(None);
         }
         while let Some(index) = self.ready.pop_front() {
-            let pending = self.pending.get_mut(index).ok_or("Invalid artifact index")?;
+            let pending = self
+                .pending
+                .get_mut(index)
+                .ok_or("Invalid artifact index")?;
             while let Some(request) = pending.requests.pop_front() {
                 let kind = match &request {
                     ResolutionRequest::Api { path } if is_allowed_artifact_api_path(path) => {
@@ -146,7 +149,10 @@ impl ArtifactResolver {
     /// # Errors
     /// Returns an error for a completion without a matching active request.
     pub fn complete(&mut self, index: usize, response_json: &str) -> Result<(), String> {
-        let pending = self.pending.get_mut(index).ok_or("Invalid artifact index")?;
+        let pending = self
+            .pending
+            .get_mut(index)
+            .ok_or("Invalid artifact index")?;
         let kind = pending
             .active
             .take()
@@ -167,7 +173,10 @@ impl ArtifactResolver {
     /// # Errors
     /// Returns an error for an inactive request, duplicate reservation, or exceeded limit.
     pub fn reserve_inline(&mut self, index: usize, bytes: u64) -> Result<(), String> {
-        let pending = self.pending.get_mut(index).ok_or("Invalid artifact index")?;
+        let pending = self
+            .pending
+            .get_mut(index)
+            .ok_or("Invalid artifact index")?;
         if pending.active != Some(RequestKind::Page) || pending.reserved.is_some() {
             return Err(String::from("Invalid inline reservation"));
         }

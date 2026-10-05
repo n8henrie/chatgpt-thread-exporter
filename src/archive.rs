@@ -5,8 +5,8 @@ use serde_json::{Value, json};
 use crate::artifacts::encode_markdown_path;
 use crate::model::{
     ArchiveInput, ArchiveJob, ArchivePlan, ArchiveSource, ArtifactPlan, ArtifactResolution,
-    Direction, MAX_INLINE_ARTIFACT_BYTES, MAX_INLINE_EXPORT_BYTES, PointerKind,
-    ResolutionRequest, ResolutionStatus,
+    Direction, MAX_INLINE_ARTIFACT_BYTES, MAX_INLINE_EXPORT_BYTES, PointerKind, ResolutionRequest,
+    ResolutionStatus,
 };
 use crate::security::{
     compact_timestamp, inline_base64_size, safe_archive_path, sanitize_error,
